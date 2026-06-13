@@ -8,6 +8,8 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { WhatspacAgent } from "./agent/agent";
 import { loadConfig } from "./config";
+import { startRfHead } from "./heads/rf/index";
+import { startWebHead } from "./heads/web/index";
 import { RhpTcpTransport } from "./rhp/client";
 import { Store } from "./store/store";
 import { createLogger } from "./util/log";
@@ -25,12 +27,34 @@ async function main(): Promise<void> {
   agent.events.on("error", (e) => log.error("agent error", e.message));
   agent.events.on("connected", (r) => log.info("connected to WPS", r));
 
+  const myCallsign = config.agent.whatsPacCallsign;
+
+  // The two heads: a web UI and the RF terminal, both over the shared agent+store.
+  const web = await startWebHead({
+    agent,
+    store,
+    myCallsign,
+    host: config.web.host,
+    port: config.web.port,
+    log,
+  });
+  log.info(`web head on http://${config.web.host}:${config.web.port}`);
+
+  const rf = await startRfHead({
+    agent,
+    store,
+    socketPath: config.rf.socketPath,
+    myCallsign,
+    log,
+  });
+  log.info(`RF terminal head on ${config.rf.socketPath}`);
+
   let shuttingDown = false;
   const shutdown = (signal: string): void => {
     if (shuttingDown) return;
     shuttingDown = true;
     log.info(`received ${signal}, shutting down`);
-    void agent.stop().finally(() => {
+    void Promise.allSettled([agent.stop(), web.close(), rf.close()]).then(() => {
       store.close();
       process.exit(0);
     });
@@ -39,7 +63,7 @@ async function main(): Promise<void> {
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 
   log.info(
-    `whatspacd: RHP ${config.rhp.host}:${config.rhp.port}, WhatsPac callsign ${config.agent.whatsPacCallsign}`,
+    `whatspacd: RHP ${config.rhp.host}:${config.rhp.port}, WhatsPac callsign ${myCallsign}`,
   );
   await agent.start();
 }

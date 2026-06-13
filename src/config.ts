@@ -14,8 +14,10 @@ export interface Config {
   agent: AgentConfig;
   dbPath: string;
   logLevel: LogLevel;
-  /** Loopback bind address + port for the web head (Slice 4). */
+  /** Loopback bind address + port for the web head. */
   web: { host: string; port: number };
+  /** Unix socket the RF terminal head listens on (must match pdn-app.yaml session.socketPath). */
+  rf: { socketPath: string };
 }
 
 const CLIENT_VERSION = 0.92;
@@ -105,6 +107,9 @@ export function loadConfig(): Config {
     web: {
       host: env("WHATSPACD_WEB_HOST") ?? "127.0.0.1",
       port: num("WHATSPACD_WEB_PORT", 18900),
+    },
+    rf: {
+      socketPath: env("WHATSPACD_RF_SOCKET") ?? join(stateDir, "whatspac.sock"),
     },
   };
 }

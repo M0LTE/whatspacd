@@ -26,8 +26,9 @@ RHP host (pdn / XRouter / BPQ) ──RHP──► [ agent: WPS link + SQLite sto
 - **`src/rhp`** — the engine-agnostic RHP client transport (TCP now; WebSocket if an engine needs it).
 - **`src/agent`** — the persistent agent: link lifecycle, connect-script runner, codec wiring, keepalive, reconnect/resync.
 - **`src/store`** — SQLite persistence (`node:sqlite`, no native dependency).
-- **`src/heads`** — the web head and the RF-terminal head.
-- **`src/pdn`** — the optional pdn integration adapter.
+- **`src/heads/web`** — the LAN/phone head: a Hono JSON+SSE API and an embedded SPA, served loopback-only (surfaced on the WLAN directly or via pdn's app-gateway).
+- **`src/heads/rf`** — the RF-terminal head: a line-oriented session over the `pdn-app/1` wire (`C WHATSPAC`).
+- pdn integration is an *optional adapter*, not a dependency: env-var fallbacks (`src/config.ts`), the [`pdn-app.yaml`](pdn-app.yaml) manifest, and gateway-aware heads.
 
 ## Develop
 
@@ -38,8 +39,10 @@ npm test             # vitest
 npm run dev          # tsx watch src/main.ts
 ```
 
-Requires Node ≥ 22.5 (uses the built-in `node:sqlite`). Ships as a single self-contained executable (Node SEA) for standalone installs — see [packaging](docs/) (Slice 5).
+Requires Node ≥ 22.5 (uses the built-in `node:sqlite`). Ships as a single ESM bundle (`npm run build` → `dist/main.js`) or a self-contained executable (Node SEA) for standalone installs — see [`docs/packaging.md`](docs/packaging.md).
 
 ## Status
 
-Early build-out, sliced per the ADR §5. The WPS protocol is re-derived from the production SPA bundle and pinned by 41 round-tripping fixtures; the remaining value-level details need a single on-air capture against the live RF network (radio-gated).
+The ADR §5 slices are built and tested against a mock WPS: the codec (1), the persistent agent + store + RHP-over-TCP client + daemon (2), the RF terminal head (3), the LAN/phone web head (4), and packaging (5). 253 tests; the full two-headed daemon runs end-to-end.
+
+The WPS protocol is re-derived from the production SPA bundle and pinned by 41 round-tripping fixtures. **What remains is radio-gated:** Slice 0's on-air capture against the live WPS (`MB7NPW-9`) — to confirm the value-level details still marked *(verify)* in [`docs/wps-protocol.md`](docs/wps-protocol.md) §9 (connect-reply key completeness, the pairing `p` reply, `cu`'s server response, direct-open acceptance, backfill ordering). The thin codec + golden fixtures are designed to absorb those corrections.
