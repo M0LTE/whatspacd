@@ -11,9 +11,11 @@ export class WpsDecodeError extends Error {
 
 /**
  * Encode a message into a complete on-wire frame, including the trailing 0x0D
- * terminator — ready to hand to the transport's `send`.
+ * terminator — ready to hand to the transport's `send`. Generic over the input
+ * so both the loose {@link WpsMessage} and the typed message interfaces (which
+ * lack a string index signature) can be passed without a cast.
  */
-export function encodeFrame(msg: WpsMessage): Uint8Array {
+export function encodeFrame<T extends { t: string }>(msg: T): Uint8Array {
   const payload = encodePayload(JSON.stringify(msg));
   const out = new Uint8Array(payload.length + 1);
   out.set(payload, 0);
